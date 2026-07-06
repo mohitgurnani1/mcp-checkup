@@ -39,6 +39,90 @@ def to_json(result: WeighResult) -> str:
     return json.dumps(doc, indent=2)
 
 
+def scan_to_json(report) -> str:
+    """JSON document for a full scan (ScanReport)."""
+    servers = []
+    for e in report.entries:
+        item: dict[str, Any] = {
+            "name": e.discovered.spec.name,
+            "transport": e.discovered.spec.transport.value,
+            "clients": e.clients,
+            "source": e.discovered.source,
+        }
+        if e.error:
+            item["error"] = e.error
+        if e.result:
+            item["totals"] = e.result.totals()
+            item["tools"] = [
+                {"name": tw.tool.name, "tokens": tw.tokens} for tw in e.result.tool_weights
+            ]
+        servers.append(item)
+    doc = {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "servers": servers,
+        "totals": report.totals(),
+        "note": "Token counts are estimates (tiktoken o200k_base on provider wire JSON).",
+    }
+    return json.dumps(doc, indent=2)
+
+
+def print_scan_table(report, console: Console | None = None) -> None:
+    """Aggregate table: one row per discovered server."""
+    console = console or Console()
+    ok = [e for e in report.entries if e.result]
+
+    table = Table(
+        title=f"🩺 MCP Checkup — {len(report.entries)} server(s), {report.tool_count} tools",
+        title_justify="left",
+    )
+    table.add_column("Server", style="bold")
+    table.add_column("Clients")
+    table.add_column("Tools", justify="right")
+    for provider in PROVIDERS:
+        table.add_column(provider, justify="right")
+
+    for e in sorted(
+        report.entries,
+        key=lambda e: -(e.result.totals().get("anthropic", 0) if e.result else -1),
+    ):
+        name = e.discovered.spec.name
+        clients = ", ".join(e.clients)
+        if e.result:
+            totals = e.result.totals()
+            table.add_row(
+                name,
+                clients,
+                str(len(e.result.tool_weights)),
+                *[f"{totals.get(p, 0):,}" for p in PROVIDERS],
+            )
+        else:
+            table.add_row(name, clients, "-", f"[red]{e.error or 'unknown error'}[/red]", "", "")
+
+    if ok:
+        totals = report.totals()
+        table.add_section()
+        table.add_row(
+            "[bold]Total[/bold]",
+            "",
+            f"[bold]{report.tool_count}[/bold]",
+            *[f"[bold]{totals.get(p, 0):,}[/bold]" for p in PROVIDERS],
+        )
+
+    console.print(table)
+    if ok:
+        anthropic_total = report.totals().get("anthropic", 0) + system_overhead("anthropic")
+        console.print(
+            f"Context tax: ~{anthropic_total:,} tokens on Anthropic models "
+            f"(incl. {system_overhead('anthropic')} tool-use system overhead), "
+            "before your first message.",
+            highlight=False,
+        )
+    console.print(
+        "[dim]Estimates via tiktoken o200k_base on provider wire JSON; "
+        "exact for GPT-4o-family, proxy for others.[/dim]"
+    )
+
+
 def print_table(result: WeighResult, console: Console | None = None) -> None:
     console = console or Console()
     spec = result.inventory.spec

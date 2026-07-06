@@ -17,9 +17,17 @@ def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
     assert __version__ in capsys.readouterr().out
 
 
-def test_no_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
+def test_no_command_runs_scan(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mcp_checkup import scan as scan_mod
+
+    async def fake_scan(**kwargs):
+        return scan_mod.ScanReport(entries=[])
+
+    monkeypatch.setattr(scan_mod, "run_scan", fake_scan)
     assert main([]) == 0
-    assert "weigh" in capsys.readouterr().out
+    assert "No MCP servers found" in capsys.readouterr().err
 
 
 def test_weigh_requires_target(capsys: pytest.CaptureFixture[str]) -> None:

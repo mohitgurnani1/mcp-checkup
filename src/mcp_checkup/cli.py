@@ -40,6 +40,26 @@ def _build_parser() -> argparse.ArgumentParser:
     weigh.add_argument(
         "--timeout", type=float, default=10.0, help="Connection timeout in seconds (default 10)"
     )
+
+    scan = sub.add_parser(
+        "scan",
+        help="Discover MCP servers from installed clients and weigh them all (default)",
+        description=(
+            "Find MCP server configs from Claude Desktop, Claude Code, Cursor, "
+            "Windsurf, and VS Code, then weigh every server concurrently."
+        ),
+    )
+    scan.add_argument(
+        "--client",
+        action="append",
+        dest="clients",
+        choices=["claude-desktop", "claude-code", "cursor", "windsurf", "vscode"],
+        help="Only scan configs of this client (repeatable)",
+    )
+    scan.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
+    scan.add_argument(
+        "--timeout", type=float, default=10.0, help="Per-server connection timeout (default 10)"
+    )
     return parser
 
 
@@ -99,10 +119,34 @@ def _cmd_weigh(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_scan(args: argparse.Namespace) -> int:
+    from mcp_checkup.render import print_scan_table, scan_to_json
+    from mcp_checkup.scan import run_scan
+
+    report = asyncio.run(run_scan(clients=args.clients, timeout=args.timeout))
+    if not report.entries:
+        print(
+            "No MCP servers found in Claude Desktop/Code, Cursor, Windsurf, or "
+            "VS Code configs.\nWeigh one directly: mcp-checkup weigh '<command or url>'",
+            file=sys.stderr,
+        )
+        return 0
+    if args.as_json:
+        print(scan_to_json(report))
+    else:
+        print_scan_table(report)
+    return 3 if all(e.error for e in report.entries) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "weigh":
         return _cmd_weigh(args)
+    if args.command == "scan":
+        return _cmd_scan(args)
+    if args.command is None and (argv is None or not argv):
+        # Bare `mcp-checkup` = scan with defaults.
+        return main(["scan"])
     parser.print_help()
     return 0

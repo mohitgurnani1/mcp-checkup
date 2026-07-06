@@ -27,9 +27,41 @@ how big it is. `mcp-checkup` measures it.
 
 ## What it looks like
 
-> ⚠️ **Target UX.** The WEIGHT column ships in v0.1.0; the HYGIENE column
-> arrives in v0.4.0. Until then the output below is the design we are building
-> toward.
+Real output of a bare `uvx mcp-checkup` on a developer laptop (v0.2.0):
+
+```text
+$ uvx mcp-checkup
+
+  🩺 MCP Checkup — 5 server(s), 128 tools
+  ┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┓
+  ┃ Server        ┃ Clients        ┃ Tools ┃ anthropic ┃ openai ┃ gemini ┃
+  ┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━┩
+  │ alpaca        │ claude-code    │    69 │    18,611 │ 19,025 │ 18,542 │
+  │ edgartools    │ claude-code    │    13 │     3,725 │  3,803 │  3,712 │
+  │ playwright    │ claude-desktop │    23 │     3,198 │  3,336 │  3,175 │
+  │ filesystem    │ claude-desktop │    14 │     1,640 │  1,723 │  1,626 │
+  │ yahoo-finance │ claude-code    │     9 │     1,396 │  1,450 │  1,387 │
+  ├───────────────┼────────────────┼───────┼───────────┼────────┼────────┤
+  │ Total         │                │   128 │    28,570 │ 29,337 │ 28,442 │
+  └───────────────┴────────────────┴───────┴───────────┴────────┴────────┘
+  Context tax: ~28,916 tokens on Anthropic models (incl. 346 tool-use
+  system overhead), before your first message.
+```
+
+That's 14% of a 200k context window, spent before the first user message.
+
+### Supported clients (auto-discovery)
+
+| Client | Config discovered |
+| --- | --- |
+| Claude Desktop | `claude_desktop_config.json` (macOS/Windows/Linux) |
+| Claude Code | project `.mcp.json` + `~/.claude.json` user/local scopes |
+| Cursor | `~/.cursor/mcp.json` + project `.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| VS Code | `.vscode/mcp.json` + user-profile `mcp.json` (`servers` key) |
+
+The HYGIENE pillar (auth, tool-poisoning, schema-bloat checks) arrives in
+v0.4.0 — the block below is that target design:
 
 ```text
 $ uvx mcp-checkup
