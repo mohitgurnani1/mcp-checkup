@@ -15,8 +15,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Build sdist and wheel
         run: uv build
       # TODO: migrate to PyPI trusted publishing (https://docs.pypi.org/trusted-publishers/)
