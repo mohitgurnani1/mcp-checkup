@@ -112,6 +112,24 @@ Full detail per milestone in [ROADMAP.md](ROADMAP.md).
 | v0.9.0  | Hardening + SDK v2          | MCP SDK v2 transport, Windows CI, perf budget                        |
 | v1.0.0  | Stable                      | Frozen CLI/exit codes/schema with a deprecation policy               |
 
+## Gate your context budget in CI
+
+Treat context bloat like coverage: gate it. Exit codes are a stable contract —
+`0` ok, `1` token budget exceeded, `2` hygiene findings at/above threshold,
+`3` no server reachable.
+
+```yaml
+# .github/workflows/mcp-checkup.yml
+- uses: mohitgurnani1/mcp-checkup@v0
+  with:
+    fail-over-total: "20000"
+    fail-on-severity: high
+```
+
+Or directly: `uvx mcp-checkup scan --fail-over-total 20000 --fail-on-severity high`.
+`--format markdown` emits a PR-comment-ready report; `--write-baseline` records
+a snapshot and later runs print per-server token drift against it.
+
 ## How counting works (and its error bars)
 
 Each tool schema is serialized into every provider's actual wire format

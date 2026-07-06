@@ -1,0 +1,39 @@
+name: mcp-checkup
+description: >-
+  Measure the context tax and hygiene of the MCP servers configured in this
+  repository, and optionally fail the build over a token budget.
+branding:
+  icon: activity
+  color: red
+
+inputs:
+  fail-over-total:
+    description: Fail if combined tool definitions exceed this many tokens (anthropic estimate)
+    required: false
+    default: ""
+  fail-on-severity:
+    description: Fail on hygiene findings at or above this severity (low|medium|high)
+    required: false
+    default: ""
+  args:
+    description: Extra arguments passed to `mcp-checkup scan`
+    required: false
+    default: ""
+  version:
+    description: mcp-checkup version to run (PyPI)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v8.2.0
+    - name: Run mcp-checkup
+      shell: bash
+      run: |
+        PKG="mcp-checkup"
+        if [ -n "${{ inputs.version }}" ]; then PKG="mcp-checkup==${{ inputs.version }}"; fi
+        FLAGS=()
+        if [ -n "${{ inputs.fail-over-total }}" ]; then FLAGS+=(--fail-over-total "${{ inputs.fail-over-total }}"); fi
+        if [ -n "${{ inputs.fail-on-severity }}" ]; then FLAGS+=(--fail-on-severity "${{ inputs.fail-on-severity }}"); fi
+        uvx --from "$PKG" mcp-checkup scan --format markdown "${FLAGS[@]}" ${{ inputs.args }} | tee "$GITHUB_STEP_SUMMARY"

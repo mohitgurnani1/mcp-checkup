@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mohitgurnani1/mcp-checkup/blob/main/schemas/report.v1.json",
+  "title": "mcp-checkup scan report (schema_version 1)",
+  "description": "JSON document emitted by `mcp-checkup scan --json` (render.scan_to_json, plus the optional costs array added by the CLI).",
+  "type": "object",
+  "required": ["schema_version", "servers", "totals", "findings", "note"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "servers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/server" }
+    },
+    "totals": { "$ref": "#/$defs/providerTokens" },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "costs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cost" }
+    },
+    "note": { "type": "string" }
+  },
+  "$defs": {
+    "providerTokens": {
+      "type": "object",
+      "description": "Provider name -> estimated token count.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "server": {
+      "type": "object",
+      "required": ["name", "transport", "clients", "source"],
+      "properties": {
+        "name": { "type": "string" },
+        "transport": { "enum": ["stdio", "http"] },
+        "clients": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source": { "type": "string" },
+        "error": { "type": "string" },
+        "totals": { "$ref": "#/$defs/providerTokens" },
+        "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tool" }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "tokens"],
+      "properties": {
+        "name": { "type": "string" },
+        "tokens": { "$ref": "#/$defs/providerTokens" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["check", "severity", "server", "tool", "summary", "detail"],
+      "properties": {
+        "check": { "type": "string" },
+        "severity": { "enum": ["low", "medium", "high"] },
+        "server": { "type": "string" },
+        "tool": { "type": ["string", "null"] },
+        "summary": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "required": [
+        "model",
+        "provider",
+        "tokens",
+        "usd_per_request",
+        "usd_per_session",
+        "turns",
+        "context_pct"
+      ],
+      "properties": {
+        "model": { "type": "string" },
+        "provider": { "type": "string" },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "usd_per_request": { "type": "number", "minimum": 0 },
+        "usd_per_session": { "type": "number", "minimum": 0 },
+        "turns": { "type": "integer", "minimum": 1 },
+        "context_pct": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

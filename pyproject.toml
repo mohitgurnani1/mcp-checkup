@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-checkup"
-version = "0.4.0"
+version = "0.5.0"
 description = "🩺 A health check for your MCP setup — measure the context tax and hygiene of your MCP servers"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,6 +44,7 @@ mcp-checkup = "mcp_checkup.cli:main"
 [dependency-groups]
 dev = [
   "codespell>=2.3",
+  "jsonschema>=4.21",
   "pre-commit>=4.0",
   "pytest>=8.0",
   "pytest-cov>=6.0",

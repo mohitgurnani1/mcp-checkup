@@ -33,3 +33,26 @@ jobs:
           uv run ruff format --check .
       - name: Test
         run: uv run pytest
+
+  dogfood:
+    name: dogfood (scan gates)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
+      - name: Build dogfood project with a cursor config
+        run: |
+          uv sync
+          mkdir -p /tmp/dogfood/.cursor
+          uv run python -c "import json, sys, os; json.dump({'mcpServers': {'toy': {'command': sys.executable, 'args': [os.path.abspath('tests/fixtures/toy_server.py')]}}}, open('/tmp/dogfood/.cursor/mcp.json', 'w'))"
+      - name: Scan passes under generous budget
+        working-directory: /tmp/dogfood
+        run: uv run --project "$GITHUB_WORKSPACE" mcp-checkup scan --client cursor --format markdown --fail-over 5000 --fail-on-severity high | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Scan fails over tight budget (exit 1)
+        working-directory: /tmp/dogfood
+        run: |
+          set +e
+          uv run --project "$GITHUB_WORKSPACE" mcp-checkup scan --client cursor --quiet --fail-over 100
+          code=$?
+          set -e
+          test "$code" -eq 1

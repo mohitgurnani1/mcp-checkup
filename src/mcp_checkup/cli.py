@@ -65,7 +65,49 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
     scan.add_argument(
+        "--format",
+        choices=["table", "json", "markdown"],
+        default=None,
+        help="Output format (default table; --json is shorthand for --format json)",
+    )
+    scan.add_argument(
         "--timeout", type=float, default=10.0, help="Per-server connection timeout (default 10)"
+    )
+    scan.add_argument(
+        "--fail-over",
+        type=int,
+        metavar="TOKENS",
+        help="Exit 1 if any single server's tool definitions exceed this many "
+        "tokens (anthropic estimate)",
+    )
+    scan.add_argument(
+        "--fail-over-total",
+        type=int,
+        metavar="TOKENS",
+        help="Exit 1 if the combined tool definitions exceed this many tokens",
+    )
+    scan.add_argument(
+        "--fail-on-severity",
+        choices=["low", "medium", "high"],
+        help="Exit 2 if any hygiene finding at or above this severity exists",
+    )
+    scan.add_argument(
+        "--quiet",
+        action="store_true",
+        help="No report output; only gate messages and the exit code",
+    )
+    scan.add_argument(
+        "--write-baseline",
+        nargs="?",
+        const=".mcp-checkup-baseline.json",
+        metavar="PATH",
+        help="Write a baseline snapshot (default .mcp-checkup-baseline.json)",
+    )
+    scan.add_argument(
+        "--baseline",
+        default=".mcp-checkup-baseline.json",
+        metavar="PATH",
+        help="Baseline file to compare against when it exists",
     )
     _add_cost_flags(scan)
     return parser
@@ -225,15 +267,27 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         )
         return 0
     models = None if args.no_cost else _resolve_cost_models(args)
-    if args.as_json:
+    fmt = args.format or ("json" if args.as_json else "table")
+
+    cost_entries = None
+    if models:
+        from mcp_checkup.render import costs_doc
+
+        cost_entries = costs_doc(report.totals(), models, args.turns)
+
+    if args.quiet:
+        pass
+    elif fmt == "json":
         import json as _json
 
         doc = _json.loads(scan_to_json(report))
-        if models:
-            from mcp_checkup.render import costs_doc
-
-            doc["costs"] = costs_doc(report.totals(), models, args.turns)
+        if cost_entries:
+            doc["costs"] = cost_entries
         print(_json.dumps(doc, indent=2))
+    elif fmt == "markdown":
+        from mcp_checkup.markdown import scan_to_markdown
+
+        print(scan_to_markdown(report, costs=cost_entries))
     else:
         print_scan_table(report)
         if models and any(e.result for e in report.entries):
@@ -243,7 +297,54 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         from mcp_checkup.render import print_findings
 
         print_findings(report.findings, verbose=args.verbose)
-    return 3 if all(e.error for e in report.entries) else 0
+
+    from mcp_checkup import baseline as baseline_mod
+
+    if args.write_baseline:
+        baseline_mod.write(report, args.write_baseline)
+        print(f"baseline written to {args.write_baseline}", file=sys.stderr)
+    elif args.baseline:
+        base = baseline_mod.load(args.baseline)
+        if base:
+            for line in baseline_mod.compare(report, base):
+                print(f"baseline: {line}", file=sys.stderr)
+
+    return _scan_exit_code(args, report)
+
+
+_SEV_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def _scan_exit_code(args: argparse.Namespace, report) -> int:
+    if report.entries and all(e.error for e in report.entries):
+        return 3
+    if args.fail_over is not None:
+        for e in report.entries:
+            if e.result and e.result.totals().get("anthropic", 0) > args.fail_over:
+                print(
+                    f"budget exceeded: server {e.discovered.spec.name!r} is "
+                    f"{e.result.totals()['anthropic']:,} tokens (limit {args.fail_over:,})",
+                    file=sys.stderr,
+                )
+                return 1
+    if args.fail_over_total is not None:
+        total = report.totals().get("anthropic", 0)
+        if total > args.fail_over_total:
+            print(
+                f"budget exceeded: total {total:,} tokens (limit {args.fail_over_total:,})",
+                file=sys.stderr,
+            )
+            return 1
+    if args.fail_on_severity:
+        threshold = _SEV_RANK[args.fail_on_severity]
+        bad = [f for f in report.findings if _SEV_RANK[f.severity.value] >= threshold]
+        if bad:
+            print(
+                f"hygiene gate: {len(bad)} finding(s) at or above severity {args.fail_on_severity}",
+                file=sys.stderr,
+            )
+            return 2
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
