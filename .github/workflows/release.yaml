@@ -18,8 +18,8 @@ jobs:
       # Required for PyPI trusted publishing.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Build sdist and wheel
         run: uv build
       # Enable after configuring PyPI trusted publishing for this repo:
