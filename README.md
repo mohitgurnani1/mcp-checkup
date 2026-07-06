@@ -182,6 +182,16 @@ Or directly: `uvx mcp-checkup scan --fail-over-total 20000 --fail-on-severity hi
 `--format markdown` emits a PR-comment-ready report; `--write-baseline` records
 a snapshot and later runs print per-server token drift against it.
 
+## Share it
+
+- `--format html` — self-contained report (no external assets), CI-artifact
+  and Slack friendly
+- `--badge FILE` — [shields.io endpoint](https://shields.io/badges/endpoint)
+  JSON: put a live "context tax: N tokens" badge on your repo
+- `mcp-checkup diff old.json new.json` — drift between two baselines
+- [docs/GALLERY.md](docs/GALLERY.md) — measured context tax of popular MCP
+  servers (github: 3,546 tokens, playwright: 3,198, …)
+
 ## How counting works (and its error bars)
 
 Each tool schema is serialized into every provider's actual wire format

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/mohit.gurnani/workspace/projects/mcp-checkup/logs/.1c04a2b9839538b71a2f0cf38a52a0ef8ea8a28e-audit.json",
+    "files": [
+        {
+            "date": 1783344246871,
+            "name": "/Users/mohit.gurnani/workspace/projects/mcp-checkup/logs/mcp-puppeteer-2026-07-06.log",
+            "hash": "0420259dfa6543220918a3c4eae0e8ca751a4751b95bf978ea8b2a743a1dfa9d"
+        }
+    ],
+    "hashType": "sha256"
+}

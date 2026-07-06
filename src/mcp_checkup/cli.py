@@ -66,9 +66,14 @@ def _build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
     scan.add_argument(
         "--format",
-        choices=["table", "json", "markdown"],
+        choices=["table", "json", "markdown", "html"],
         default=None,
         help="Output format (default table; --json is shorthand for --format json)",
+    )
+    scan.add_argument(
+        "--badge",
+        metavar="FILE",
+        help="Write a shields.io endpoint JSON with the total context tax",
     )
     scan.add_argument(
         "--timeout", type=float, default=10.0, help="Per-server connection timeout (default 10)"
@@ -186,6 +191,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default="first-sentence",
         help="Description policy for trimmed schemas",
     )
+
+    diff = sub.add_parser(
+        "diff",
+        help="Compare two baseline snapshots",
+        description="Show token drift and definition changes between two "
+        "baseline files written with scan --write-baseline.",
+    )
+    diff.add_argument("old", help="Older baseline file")
+    diff.add_argument("new", help="Newer baseline file")
     return parser
 
 
@@ -364,6 +378,13 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         from mcp_checkup.markdown import scan_to_markdown
 
         print(scan_to_markdown(report, costs=cost_entries))
+    elif fmt == "html":
+        from datetime import datetime, timezone
+
+        from mcp_checkup.html_report import scan_to_html
+
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        print(scan_to_html(report, costs=cost_entries, generated_at=stamp))
     else:
         print_scan_table(report)
         if models and any(e.result for e in report.entries):
@@ -373,6 +394,12 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         from mcp_checkup.render import print_findings
 
         print_findings(report.findings, verbose=args.verbose)
+
+    if args.badge:
+        from mcp_checkup.badge import write_badge
+
+        write_badge(report, args.badge)
+        print(f"badge endpoint written to {args.badge}", file=sys.stderr)
 
     from mcp_checkup import baseline as baseline_mod
 
@@ -493,6 +520,26 @@ def _cmd_fix(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_diff(args: argparse.Namespace) -> int:
+    from rich.console import Console
+
+    from mcp_checkup import baseline as baseline_mod
+    from mcp_checkup.diffcmd import diff_baselines, render_diff
+
+    old = baseline_mod.load(args.old)
+    new = baseline_mod.load(args.new)
+    if old is None or new is None:
+        missing = args.old if old is None else args.new
+        print(f"error: cannot read baseline {missing!r}", file=sys.stderr)
+        return 3
+    lines = diff_baselines(old, new)
+    if not lines:
+        print("no changes")
+        return 0
+    render_diff(lines, Console())
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     from mcp_checkup.compress import CompressPolicy
     from mcp_checkup.proxy import run_proxy
@@ -514,6 +561,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_fix(args)
     if args.command == "serve":
         return _cmd_serve(args)
+    if args.command == "diff":
+        return _cmd_diff(args)
     if args.command is None and (argv is None or not argv):
         # Bare `mcp-checkup` = scan with defaults.
         return main(["scan"])
