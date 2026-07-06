@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-checkup"
+version = "0.0.1"
+description = "🩺 A health check for your MCP setup — measure the context tax and hygiene of your MCP servers"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Mohit Gurnani" }]
+keywords = ["mcp", "model-context-protocol", "llm", "tokens", "audit", "cli"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/mohitgurnani1/mcp-checkup"
+Repository = "https://github.com/mohitgurnani1/mcp-checkup"
+Issues = "https://github.com/mohitgurnani1/mcp-checkup/issues"
+
+[project.scripts]
+mcp-checkup = "mcp_checkup.cli:main"
+
+[dependency-groups]
+dev = [
+  "codespell>=2.3",
+  "pre-commit>=4.0",
+  "pytest>=8.0",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "UP",  # pyupgrade
+  "SIM", # flake8-simplify
+  "C4",  # flake8-comprehensions
+  "RUF", # ruff-specific
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=mcp_checkup --cov-report=term-missing"
+
+[tool.coverage.report]
+fail_under = 80
