@@ -27,8 +27,9 @@ how big it is. `mcp-checkup` measures it.
 
 ## What it looks like
 
-> ⚠️ **Target UX — under active development.** The output below is the design
-> we are building toward. Today the CLI installs and prints the roadmap.
+> ⚠️ **Target UX.** The WEIGHT column ships in v0.1.0; the HYGIENE column
+> arrives in v0.4.0. Until then the output below is the design we are building
+> toward.
 
 ```text
 $ uvx mcp-checkup
@@ -59,15 +60,20 @@ running server. That's the whole interface — one command, one report.
 
 ## Roadmap
 
-- [ ] **Weight** — per-tool token count of every server's schemas (tiktoken +
-      Anthropic token counting)
-- [ ] **Weight** — $ cost per session per model (GPT, Claude, Gemini pricing tables)
-- [ ] **Hygiene** — missing auth, exposed tool listings
-- [ ] **Hygiene** — bloated schemas (vs. minimal equivalent), suspicious /
-      injection-prone tool descriptions
-- [ ] `--fix` — emit compressed schemas that preserve call structure
-- [ ] CI mode — `--fail-over <tokens>` budget gate for your pipeline
-- [ ] Client config auto-discovery (Claude Desktop / Claude Code / Cursor / Windsurf)
+Full detail per milestone in [ROADMAP.md](ROADMAP.md).
+
+| Version | Theme                       | One line                                                            |
+| ------- | --------------------------- | ------------------------------------------------------------------- |
+| v0.1.0  | Weigh one server            | `weigh <target>` prints a per-tool token table for one server        |
+| v0.2.0  | Auto-discovery              | Zero-flag scan of Claude Desktop/Code, Cursor, Windsurf, VS Code     |
+| v0.3.0  | Dollars & context tax       | $/request, $/session, and context-tax % per model                    |
+| v0.4.0  | Hygiene                     | Weight (W01–W05) and security (H01–H04) checks, two-pillar report    |
+| v0.5.0  | CI gate                     | Budget/severity gates, stable exit codes, GitHub Action              |
+| v0.6.0  | `--fix` emit                | Semantic-safe schema compression with before/after report            |
+| v0.7.0  | Trim proxy + rug-pull pins  | `serve --wrap --trim` proxy, changed-since-pin detection             |
+| v0.8.0  | Shareable reports           | Self-contained HTML report, badge endpoint, `diff` command           |
+| v0.9.0  | Hardening + SDK v2          | MCP SDK v2 transport, Windows CI, perf budget                        |
+| v1.0.0  | Stable                      | Frozen CLI/exit codes/schema with a deprecation policy               |
 
 ## Status
 

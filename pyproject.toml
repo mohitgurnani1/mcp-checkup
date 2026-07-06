@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-checkup"
-version = "0.0.1"
+version = "0.1.0"
 description = "🩺 A health check for your MCP setup — measure the context tax and hygiene of your MCP servers"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,7 +24,11 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Quality Assurance",
 ]
-dependencies = []
+dependencies = [
+  "mcp>=1.8,<2",
+  "rich>=13",
+  "tiktoken>=0.8",
+]
 
 [project.urls]
 Homepage = "https://github.com/mohitgurnani1/mcp-checkup"
@@ -63,6 +67,7 @@ select = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=mcp_checkup --cov-report=term-missing"
+markers = ["integration: spawns real subprocesses (slower)"]
 
 [tool.coverage.report]
 fail_under = 80
