@@ -1,0 +1,24 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", "mkdocs.yml", ".github/workflows/docs.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
+      - name: Build and deploy
+        run: uvx --with mkdocs-material mkdocs gh-deploy --force

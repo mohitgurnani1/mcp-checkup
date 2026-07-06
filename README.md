@@ -210,9 +210,11 @@ cache invalidation.
 
 ## Status
 
-Early days — the measurement engine is being built in the open. If the context
-tax bothers you too: ⭐ star the repo to follow along, open an issue with your
-worst MCP token bill, or see [CONTRIBUTING.md](CONTRIBUTING.md) to help build it.
+**Stable (1.0).** CLI flags, exit codes, and document schemas are frozen under
+the [stability contract](STABILITY.md). If the context tax bothers you too:
+⭐ star the repo, open an issue with your worst MCP token bill, or see
+[CONTRIBUTING.md](CONTRIBUTING.md) — mutation testing and MCP SDK v2 migration
+are open contributor-friendly tasks.
 
 ## License
 

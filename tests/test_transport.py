@@ -171,3 +171,21 @@ def test_fetch_inventory_http_without_url():
     with pytest.raises(TransportError) as excinfo:
         asyncio.run(fetch_inventory(spec))
     assert "webless" in str(excinfo.value)
+
+
+def test_split_command_windows_paths(monkeypatch) -> None:
+    import mcp_checkup.transport as t
+
+    monkeypatch.setattr(t.os, "name", "nt")
+    tokens = t.split_command(r'C:\venv\Scripts\python.exe "C:\my tools\srv.py" --flag')
+    assert tokens == ["C:\\venv\\Scripts\\python.exe", "C:\\my tools\\srv.py", "--flag"]
+
+
+def test_parse_target_windows_command(monkeypatch) -> None:
+    import mcp_checkup.transport as t
+
+    monkeypatch.setattr(t.os, "name", "nt")
+    spec = t.parse_target(r"C:\venv\Scripts\python.exe srv.py")
+    assert spec.command == "C:\\venv\\Scripts\\python.exe"
+    assert spec.args == ["srv.py"]
+    assert spec.name == "python.exe"

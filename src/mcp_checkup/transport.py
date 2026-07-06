@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shlex
 import sys
 from collections.abc import Awaitable, Callable, Iterator
@@ -38,6 +39,18 @@ class TransportError(Exception):
     """A server could not be reached, initialized, or inspected."""
 
 
+def split_command(command_line: str) -> list[str]:
+    """Split a command-line string, preserving Windows path backslashes.
+
+    POSIX :func:`shlex.split` treats ``\\`` as an escape, which mangles
+    ``C:\\...\\python.exe``; non-POSIX mode keeps backslashes but leaves
+    surrounding quotes on tokens, so strip those.
+    """
+    if os.name == "nt":
+        return [t.strip("\"'") for t in shlex.split(command_line, posix=False)]
+    return shlex.split(command_line)
+
+
 def parse_target(target: str) -> ServerSpec:
     """Turn a raw CLI target string into a :class:`ServerSpec`.
 
@@ -51,11 +64,12 @@ def parse_target(target: str) -> ServerSpec:
     if target.startswith(("http://", "https://")):
         host = urlparse(target).netloc
         return ServerSpec(name=host or target, transport=Transport.HTTP, url=target)
-    tokens = shlex.split(target)
+    tokens = split_command(target)
     if not tokens:
         raise ValueError("empty server target")
     command, *args = tokens
-    name = os.path.basename(command.rstrip("/")) or command
+    # Last path component regardless of separator style (host OS agnostic).
+    name = re.split(r"[\\/]", command.rstrip("/\\"))[-1] or command
     return ServerSpec(name=name, transport=Transport.STDIO, command=command, args=args)
 
 

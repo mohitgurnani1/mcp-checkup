@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: If you reference mcp-checkup in research or writing, please cite it as below.
+title: "mcp-checkup: a health check for your MCP setup"
+type: software
+authors:
+  - family-names: Gurnani
+    given-names: Mohit
+repository-code: https://github.com/mohitgurnani1/mcp-checkup
+url: https://github.com/mohitgurnani1/mcp-checkup
+license: Apache-2.0
+keywords:
+  - model-context-protocol
+  - mcp
+  - llm
+  - tokens
+  - developer-tools

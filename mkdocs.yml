@@ -1,0 +1,33 @@
+site_name: mcp-checkup
+site_description: 🩺 A health check for your MCP setup — measure the context tax and hygiene of your MCP servers
+site_url: https://mohitgurnani1.github.io/mcp-checkup/
+repo_url: https://github.com/mohitgurnani1/mcp-checkup
+repo_name: mohitgurnani1/mcp-checkup
+
+theme:
+  name: material
+  icon:
+    logo: material/stethoscope
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+
+nav:
+  - Home: index.md
+  - Server gallery: GALLERY.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - tables

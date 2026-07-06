@@ -36,7 +36,7 @@ from pydantic import AnyUrl
 
 from .compress import CompressPolicy, compress_tool
 from .models import ToolInfo
-from .transport import _stderr_sink
+from .transport import _stderr_sink, split_command
 
 SERVER_NAME = "mcp-checkup-proxy"
 
@@ -180,7 +180,7 @@ async def run_proxy(
     or the task is cancelled; either way the child is shut down cleanly by
     the context managers on the way out.
     """
-    tokens = shlex.split(child_command)
+    tokens = split_command(child_command)
     if not tokens:
         raise ValueError("empty child command")
     params = StdioServerParameters(command=tokens[0], args=tokens[1:])
