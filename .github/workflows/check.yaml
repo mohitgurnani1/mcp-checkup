@@ -18,7 +18,7 @@ jobs:
     name: make check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Run make check (precommit must produce no diff)
         run: make check
