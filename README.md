@@ -107,6 +107,22 @@ Full detail per milestone in [ROADMAP.md](ROADMAP.md).
 | v0.9.0  | Hardening + SDK v2          | MCP SDK v2 transport, Windows CI, perf budget                        |
 | v1.0.0  | Stable                      | Frozen CLI/exit codes/schema with a deprecation policy               |
 
+## How counting works (and its error bars)
+
+Each tool schema is serialized into every provider's actual wire format
+(Anthropic `tools`, OpenAI `functions`, Gemini `functionDeclarations`) and
+counted with tiktoken's `o200k_base` encoding — exact for the GPT-4o/GPT-5
+family, a close proxy (±~10%) for Anthropic and Gemini. Anthropic totals add
+the documented tool-use system-prompt overhead. For billing-exact Anthropic
+numbers, install `mcp-checkup[precise]`, set `ANTHROPIC_API_KEY`, and pass
+`--precise` — it queries the free `count_tokens` API with your real schemas.
+
+Prices and context windows come from a vendored snapshot of LiteLLM's
+community-maintained pricing table; `--refresh-pricing` fetches the latest at
+runtime (with silent fallback). `$ per session` assumes schemas are resent
+every turn — with prompt caching you pay full price on turn one and on every
+cache invalidation.
+
 ## Status
 
 Early days — the measurement engine is being built in the open. If the context

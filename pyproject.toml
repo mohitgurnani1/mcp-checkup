@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcp-checkup"
-version = "0.2.0"
+version = "0.3.0"
 description = "🩺 A health check for your MCP setup — measure the context tax and hygiene of your MCP servers"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,9 @@ dependencies = [
   "rich>=13",
   "tiktoken>=0.8",
 ]
+
+[project.optional-dependencies]
+precise = ["anthropic>=0.40"]
 
 [project.urls]
 Homepage = "https://github.com/mohitgurnani1/mcp-checkup"

@@ -40,6 +40,13 @@ def _build_parser() -> argparse.ArgumentParser:
     weigh.add_argument(
         "--timeout", type=float, default=10.0, help="Connection timeout in seconds (default 10)"
     )
+    _add_cost_flags(weigh)
+    weigh.add_argument(
+        "--precise",
+        action="store_true",
+        help="Also query Anthropic's count_tokens API for an exact count "
+        "(needs ANTHROPIC_API_KEY and the [precise] extra)",
+    )
 
     scan = sub.add_parser(
         "scan",
@@ -60,7 +67,40 @@ def _build_parser() -> argparse.ArgumentParser:
     scan.add_argument(
         "--timeout", type=float, default=10.0, help="Per-server connection timeout (default 10)"
     )
+    _add_cost_flags(scan)
     return parser
+
+
+def _add_cost_flags(p: argparse.ArgumentParser) -> None:
+    p.add_argument(
+        "--model",
+        action="append",
+        dest="model_names",
+        metavar="MODEL",
+        help="Model to price against (repeatable; default: one flagship per provider)",
+    )
+    p.add_argument(
+        "--turns",
+        type=int,
+        default=10,
+        help="Conversation turns for $/session estimate (default 10)",
+    )
+    p.add_argument(
+        "--refresh-pricing",
+        action="store_true",
+        help="Fetch latest prices from LiteLLM's table (falls back to vendored snapshot)",
+    )
+    p.add_argument("--no-cost", action="store_true", help="Skip the cost section")
+
+
+def _resolve_cost_models(args: argparse.Namespace):
+    from mcp_checkup.pricing import load_pricing, resolve_models
+
+    pricing = load_pricing(refresh=args.refresh_pricing)
+    try:
+        return resolve_models(args.model_names, pricing)
+    except ValueError as exc:
+        raise SystemExit(f"error: {exc}") from exc
 
 
 def _spec_from_config(path: str, server: str | None) -> ServerSpec:
@@ -112,10 +152,39 @@ def _cmd_weigh(args: argparse.Namespace) -> int:
         return 3
 
     result = weigh_inventory(inventory)
+    models = None if args.no_cost else _resolve_cost_models(args)
+
+    precise_count = None
+    if args.precise:
+        from mcp_checkup.precise import count_precise
+
+        anthropic_model = next((m.key for m in models or [] if m.provider == "anthropic"), None)
+        precise_count = count_precise(inventory.tools, anthropic_model or "claude-sonnet-4-5")
+        if precise_count is None:
+            print(
+                "note: --precise skipped (install mcp-checkup[precise] and set ANTHROPIC_API_KEY)",
+                file=sys.stderr,
+            )
+
     if args.as_json:
-        print(to_json(result))
+        import json as _json
+
+        doc = _json.loads(to_json(result))
+        if models:
+            from mcp_checkup.render import costs_doc
+
+            doc["costs"] = costs_doc(result.totals(), models, args.turns)
+        if precise_count is not None:
+            doc["precise_anthropic_tokens"] = precise_count
+        print(_json.dumps(doc, indent=2))
     else:
         print_table(result)
+        if models:
+            from mcp_checkup.render import print_cost_section
+
+            print_cost_section(result.totals(), models, args.turns)
+        if precise_count is not None:
+            print(f"Precise Anthropic count (count_tokens API): {precise_count:,} tokens")
     return 0
 
 
@@ -131,10 +200,22 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 0
+    models = None if args.no_cost else _resolve_cost_models(args)
     if args.as_json:
-        print(scan_to_json(report))
+        import json as _json
+
+        doc = _json.loads(scan_to_json(report))
+        if models:
+            from mcp_checkup.render import costs_doc
+
+            doc["costs"] = costs_doc(report.totals(), models, args.turns)
+        print(_json.dumps(doc, indent=2))
     else:
         print_scan_table(report)
+        if models and any(e.result for e in report.entries):
+            from mcp_checkup.render import print_cost_section
+
+            print_cost_section(report.totals(), models, args.turns)
     return 3 if all(e.error for e in report.entries) else 0
 
 

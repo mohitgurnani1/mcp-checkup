@@ -123,6 +123,59 @@ def print_scan_table(report, console: Console | None = None) -> None:
     )
 
 
+def costs_doc(totals: dict[str, int], models, turns: int) -> list[dict[str, Any]]:
+    """JSON cost entries for the given per-provider token totals."""
+    from mcp_checkup.pricing import cost_line
+
+    out = []
+    for m in models:
+        tokens = totals.get(m.provider, 0) + system_overhead(m.provider)
+        c = cost_line(m, tokens, turns=turns)
+        out.append(
+            {
+                "model": m.key,
+                "provider": m.provider,
+                "tokens": tokens,
+                "usd_per_request": round(c.usd_per_request, 6),
+                "usd_per_session": round(c.usd_per_session, 6),
+                "turns": turns,
+                "context_pct": round(c.context_pct, 2),
+            }
+        )
+    return out
+
+
+def print_cost_section(
+    totals: dict[str, int], models, turns: int, console: Console | None = None
+) -> None:
+    """Per-model cost + context-tax lines under a weigh/scan table."""
+    from mcp_checkup.pricing import cost_line
+
+    console = console or Console()
+    table = Table(title="💸 Context tax per model", title_justify="left")
+    table.add_column("Model", style="bold")
+    table.add_column("Tokens", justify="right")
+    table.add_column("$/request", justify="right")
+    table.add_column(f"$/session ({turns} turns)", justify="right")
+    table.add_column("% of context", justify="right")
+
+    for m in models:
+        tokens = totals.get(m.provider, 0) + system_overhead(m.provider)
+        c = cost_line(m, tokens, turns=turns)
+        table.add_row(
+            m.display,
+            f"{tokens:,}",
+            f"${c.usd_per_request:.4f}",
+            f"${c.usd_per_session:.2f}",
+            f"{c.context_pct:.1f}%",
+        )
+    console.print(table)
+    console.print(
+        "[dim]$/session assumes schemas resent every turn (no prompt caching); "
+        "with caching you pay full price on turn one and on every cache miss.[/dim]"
+    )
+
+
 def print_table(result: WeighResult, console: Console | None = None) -> None:
     console = console or Console()
     spec = result.inventory.spec

@@ -48,6 +48,9 @@ def test_weigh_toy_server_e2e(capsys: pytest.CaptureFixture[str]) -> None:
     names = {t["name"] for t in doc["tools"]}
     assert {"add", "greet", "search"} <= names
     assert doc["totals"]["anthropic"] > 0
+    providers = {c["provider"] for c in doc["costs"]}
+    assert providers == {"anthropic", "openai", "gemini"}
+    assert all(c["usd_per_request"] > 0 and c["context_pct"] > 0 for c in doc["costs"])
 
 
 @pytest.mark.integration
