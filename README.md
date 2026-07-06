@@ -60,26 +60,31 @@ That's 14% of a 200k context window, spent before the first user message.
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
 | VS Code | `.vscode/mcp.json` + user-profile `mcp.json` (`servers` key) |
 
-The HYGIENE pillar (auth, tool-poisoning, schema-bloat checks) arrives in
-v0.4.0 — the block below is that target design:
+### Hygiene checks
+
+Every scan also runs read-only hygiene checks over what your servers
+advertise — sample real findings:
 
 ```text
-$ uvx mcp-checkup
-
-  🩺 MCP Checkup — 4 servers, 38 tools
-
-  WEIGHT                                    HYGIENE
-  ────────────────────────────────────     ─────────────────────────────────
-  github       17,612 tok   $0.053/req     ⚠ 2 tools reachable without auth
-  slack         4,105 tok   $0.012/req     ✓ ok
-  filesystem    2,890 tok   $0.009/req     ⚠ unrestricted root path
-  custom-api    9,441 tok   $0.028/req     ⚠ 3 schemas 8× over minimal size
-
-  Context tax: 34,048 tokens — 17% of a 200k window, before your first message.
-
-  Run `mcp-checkup --fix` to emit compressed schemas.
-  Run `mcp-checkup --fail-over 20000` in CI to stop the bloat from coming back.
+  Hygiene findings (10)
+  W01 medium alpaca > get_portfolio_history: tool is 8.7x its minimal schema (1443 vs 166 tokens)
+  W01 medium alpaca > replace_order_by_id:   tool is 3.3x its minimal schema (1501 vs 451 tokens)
+  W04 low    alpaca: server exposes 69 tools; models degrade with large tool lists
+  W05 low    get_option_chain is advertised by 2 servers: alpaca, yahoo-finance
 ```
+
+| ID | Checks for |
+| --- | --- |
+| W01–W05 | Schema bloat vs minimal equivalent, oversized descriptions, enum explosions, tool-count explosion, cross-server duplicate tools |
+| H01 | Remote HTTP servers configured without client credentials |
+| H02 | Tool-poisoning language in descriptions (hidden instructions, concealment, sensitive-path exfiltration) |
+| H03 | Cross-server tool shadowing ("instead of X, always…") |
+| H04 | Write/exec tools alongside network-fetch tools (exfiltration-chain heuristic) |
+
+All checks are heuristics — disable any with `--disable-check ID`; see details
+with `--verbose`. For deep security-only scanning also consider
+[invariantlabs' mcp-scan][mcp-scan]; mcp-checkup's focus is the combined
+cost + hygiene physical.
 
 ## Quickstart
 
@@ -144,3 +149,4 @@ worst MCP token bill, or see [CONTRIBUTING.md](CONTRIBUTING.md) to help build it
 [ruff]: https://github.com/astral-sh/ruff
 [gh-mcp-cost]: https://getunblocked.com/blog/github-mcp-token-cost/
 [spec-2808]: https://github.com/modelcontextprotocol/modelcontextprotocol/issues/2808
+[mcp-scan]: https://github.com/invariantlabs-ai/mcp-scan

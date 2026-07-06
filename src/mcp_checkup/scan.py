@@ -28,6 +28,7 @@ class ScanEntry:
 @dataclass
 class ScanReport:
     entries: list[ScanEntry] = field(default_factory=list)
+    findings: list = field(default_factory=list)  # list[Finding] from checks
 
     def totals(self) -> dict[str, int]:
         out: dict[str, int] = {}
@@ -71,6 +72,7 @@ async def run_scan(
     clients: list[str] | None = None,
     timeout: float = 10.0,
     concurrency: int = 8,
+    disabled_checks: set[str] | None = None,
 ) -> ScanReport:
     entries = dedupe(discover_all(home=home, clients=clients))
     sem = asyncio.Semaphore(concurrency)
@@ -80,4 +82,9 @@ async def run_scan(
             await _weigh_entry(entry, timeout)
 
     await asyncio.gather(*(bounded(e) for e in entries))
-    return ScanReport(entries=entries)
+
+    from mcp_checkup.checks import run_checks
+
+    inventories = [e.result.inventory for e in entries if e.result]
+    findings = run_checks(inventories, disabled=disabled_checks) if inventories else []
+    return ScanReport(entries=entries, findings=findings)

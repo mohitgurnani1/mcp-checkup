@@ -91,6 +91,14 @@ def _add_cost_flags(p: argparse.ArgumentParser) -> None:
         help="Fetch latest prices from LiteLLM's table (falls back to vendored snapshot)",
     )
     p.add_argument("--no-cost", action="store_true", help="Skip the cost section")
+    p.add_argument(
+        "--disable-check",
+        action="append",
+        dest="disabled_checks",
+        metavar="ID",
+        help="Disable a hygiene check by id, e.g. W01 (repeatable)",
+    )
+    p.add_argument("--verbose", action="store_true", help="Show hygiene finding details")
 
 
 def _resolve_cost_models(args: argparse.Namespace):
@@ -154,6 +162,10 @@ def _cmd_weigh(args: argparse.Namespace) -> int:
     result = weigh_inventory(inventory)
     models = None if args.no_cost else _resolve_cost_models(args)
 
+    from mcp_checkup.checks import run_checks
+
+    findings = run_checks([inventory], disabled=set(args.disabled_checks or []))
+
     precise_count = None
     if args.precise:
         from mcp_checkup.precise import count_precise
@@ -176,6 +188,9 @@ def _cmd_weigh(args: argparse.Namespace) -> int:
             doc["costs"] = costs_doc(result.totals(), models, args.turns)
         if precise_count is not None:
             doc["precise_anthropic_tokens"] = precise_count
+        from mcp_checkup.render import findings_doc
+
+        doc["findings"] = findings_doc(findings)
         print(_json.dumps(doc, indent=2))
     else:
         print_table(result)
@@ -185,6 +200,9 @@ def _cmd_weigh(args: argparse.Namespace) -> int:
             print_cost_section(result.totals(), models, args.turns)
         if precise_count is not None:
             print(f"Precise Anthropic count (count_tokens API): {precise_count:,} tokens")
+        from mcp_checkup.render import print_findings
+
+        print_findings(findings, verbose=args.verbose)
     return 0
 
 
@@ -192,7 +210,13 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     from mcp_checkup.render import print_scan_table, scan_to_json
     from mcp_checkup.scan import run_scan
 
-    report = asyncio.run(run_scan(clients=args.clients, timeout=args.timeout))
+    report = asyncio.run(
+        run_scan(
+            clients=args.clients,
+            timeout=args.timeout,
+            disabled_checks=set(args.disabled_checks or []),
+        )
+    )
     if not report.entries:
         print(
             "No MCP servers found in Claude Desktop/Code, Cursor, Windsurf, or "
@@ -216,6 +240,9 @@ def _cmd_scan(args: argparse.Namespace) -> int:
             from mcp_checkup.render import print_cost_section
 
             print_cost_section(report.totals(), models, args.turns)
+        from mcp_checkup.render import print_findings
+
+        print_findings(report.findings, verbose=args.verbose)
     return 3 if all(e.error for e in report.entries) else 0
 
 

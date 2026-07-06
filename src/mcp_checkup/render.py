@@ -61,15 +61,60 @@ def scan_to_json(report) -> str:
         "schema_version": REPORT_SCHEMA_VERSION,
         "servers": servers,
         "totals": report.totals(),
+        "findings": findings_doc(getattr(report, "findings", [])),
         "note": "Token counts are estimates (tiktoken o200k_base on provider wire JSON).",
     }
     return json.dumps(doc, indent=2)
+
+
+def _hygiene_cell(server: str, findings) -> str:
+    mine = [f for f in findings if f.server == server]
+    if not mine:
+        return "[green]✓ ok[/green]"
+    by_sev: dict[str, int] = {}
+    for f in mine:
+        by_sev[f.severity.value] = by_sev.get(f.severity.value, 0) + 1
+    parts = []
+    for sev, color in (("high", "red"), ("medium", "yellow"), ("low", "dim")):
+        if by_sev.get(sev):
+            parts.append(f"[{color}]{by_sev[sev]} {sev}[/{color}]")
+    return "⚠ " + ", ".join(parts)
+
+
+def print_findings(findings, verbose: bool = False, console: Console | None = None) -> None:
+    """Detail list of hygiene findings below the main table."""
+    console = console or Console()
+    if not findings:
+        return
+    console.print(f"\n[bold]Hygiene findings ({len(findings)})[/bold]")
+    color = {"high": "red", "medium": "yellow", "low": "dim"}
+    for f in findings:
+        c = color[f.severity.value]
+        loc = f.server + (f" > {f.tool}" if f.tool else "")
+        console.print(f"  [{c}]{f.check_id} {f.severity.value:<6}[/{c}] {loc}: {f.summary}")
+        if verbose and f.detail:
+            console.print(f"           [dim]{f.detail}[/dim]")
+
+
+def findings_doc(findings) -> list[dict[str, Any]]:
+    return [
+        {
+            "check": f.check_id,
+            "severity": f.severity.value,
+            "server": f.server,
+            "tool": f.tool,
+            "summary": f.summary,
+            "detail": f.detail,
+        }
+        for f in findings
+    ]
 
 
 def print_scan_table(report, console: Console | None = None) -> None:
     """Aggregate table: one row per discovered server."""
     console = console or Console()
     ok = [e for e in report.entries if e.result]
+    findings = getattr(report, "findings", [])
 
     table = Table(
         title=f"🩺 MCP Checkup — {len(report.entries)} server(s), {report.tool_count} tools",
@@ -80,6 +125,7 @@ def print_scan_table(report, console: Console | None = None) -> None:
     table.add_column("Tools", justify="right")
     for provider in PROVIDERS:
         table.add_column(provider, justify="right")
+    table.add_column("Hygiene")
 
     for e in sorted(
         report.entries,
@@ -94,9 +140,12 @@ def print_scan_table(report, console: Console | None = None) -> None:
                 clients,
                 str(len(e.result.tool_weights)),
                 *[f"{totals.get(p, 0):,}" for p in PROVIDERS],
+                _hygiene_cell(name, findings),
             )
         else:
-            table.add_row(name, clients, "-", f"[red]{e.error or 'unknown error'}[/red]", "", "")
+            table.add_row(
+                name, clients, "-", f"[red]{e.error or 'unknown error'}[/red]", "", "", ""
+            )
 
     if ok:
         totals = report.totals()
