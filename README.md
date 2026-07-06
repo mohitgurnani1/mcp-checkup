@@ -112,6 +112,29 @@ Full detail per milestone in [ROADMAP.md](ROADMAP.md).
 | v0.9.0  | Hardening + SDK v2          | MCP SDK v2 transport, Windows CI, perf budget                        |
 | v1.0.0  | Stable                      | Frozen CLI/exit codes/schema with a deprecation policy               |
 
+## Put your schemas on a diet
+
+`mcp-checkup fix <server>` builds compressed versions of every tool schema —
+**semantic-safe**: tool names, types, and required fields never change; only
+prose (descriptions, titles, examples) and over-restrictive sugar are trimmed.
+Measured on real servers with the default policy (keep first sentence):
+
+```text
+$ mcp-checkup fix "npx -y @modelcontextprotocol/server-everything"
+  Total: 1,084 -> 735 tokens   % saved: 32.2%
+
+$ mcp-checkup fix "python toy_bloated_server.py"
+  search: 1,243 -> 336 tokens (73% saved)
+```
+
+- `--emit DIR` writes drop-in sidecar schema files + a `TOOLS.md` for the
+  server's author
+- `--emit-pr-text FILE` generates a polite, data-driven issue body to file
+  upstream
+
+Honest limit: your client still fetches the original schemas from the server —
+permanent fixes belong server-side, or use the trim proxy (v0.7).
+
 ## Gate your context budget in CI
 
 Treat context bloat like coverage: gate it. Exit codes are a stable contract —

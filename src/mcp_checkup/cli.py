@@ -110,6 +110,39 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Baseline file to compare against when it exists",
     )
     _add_cost_flags(scan)
+
+    fix = sub.add_parser(
+        "fix",
+        help="Compress a server's tool schemas and show the token savings",
+        description=(
+            "Build semantic-safe compressed versions of a server's tool "
+            "schemas (types/required/names never change) and report the "
+            "before/after token cost. Optionally emit sidecar schema files "
+            "or a ready-to-file upstream issue."
+        ),
+    )
+    fix.add_argument("target", nargs="?", help="Server: stdio command or http(s) URL")
+    fix.add_argument("--config", help="Path to an mcpServers-style JSON config file")
+    fix.add_argument("--server", help="Server name inside --config")
+    fix.add_argument(
+        "--timeout", type=float, default=10.0, help="Connection timeout in seconds (default 10)"
+    )
+    fix.add_argument(
+        "--keep-descriptions",
+        choices=["none", "first-sentence", "full"],
+        default="first-sentence",
+        help="How much description text the compressed schemas keep (default first-sentence)",
+    )
+    fix.add_argument(
+        "--emit",
+        metavar="DIR",
+        help="Write compressed sidecar schema files + TOOLS.md into DIR",
+    )
+    fix.add_argument(
+        "--emit-pr-text",
+        metavar="FILE",
+        help="Write a ready-to-paste upstream issue body to FILE",
+    )
     return parser
 
 
@@ -347,6 +380,41 @@ def _scan_exit_code(args: argparse.Namespace, report) -> int:
     return 0
 
 
+def _cmd_fix(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from rich.console import Console
+
+    from mcp_checkup.compress import CompressPolicy
+    from mcp_checkup.fixer import build_report, emit_sidecars, pr_text, render_fix_table
+    from mcp_checkup.transport import TransportError, fetch_inventory, parse_target
+
+    if args.config:
+        spec = _spec_from_config(args.config, args.server)
+    elif args.target:
+        spec = parse_target(args.target)
+    else:
+        raise SystemExit("error: provide a target command/URL or --config")
+
+    try:
+        inventory = asyncio.run(fetch_inventory(spec, timeout=args.timeout))
+    except TransportError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+
+    policy = CompressPolicy(descriptions=args.keep_descriptions)
+    report = build_report(inventory, policy)
+    render_fix_table(report, Console())
+
+    if args.emit:
+        paths = emit_sidecars(inventory, policy, Path(args.emit))
+        print(f"wrote {len(paths)} file(s) to {args.emit}", file=sys.stderr)
+    if args.emit_pr_text:
+        Path(args.emit_pr_text).write_text(pr_text(inventory, report), encoding="utf-8")
+        print(f"wrote upstream issue text to {args.emit_pr_text}", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -354,6 +422,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_weigh(args)
     if args.command == "scan":
         return _cmd_scan(args)
+    if args.command == "fix":
+        return _cmd_fix(args)
     if args.command is None and (argv is None or not argv):
         # Bare `mcp-checkup` = scan with defaults.
         return main(["scan"])
