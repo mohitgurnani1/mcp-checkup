@@ -3,6 +3,10 @@
 Living document; issues tracked per GitHub milestone:
 <https://github.com/mohitgurnani1/mcp-checkup/milestones>
 
+**Status: v0.1.0 → v1.0.0 all shipped.** The CLI, exit codes, and document
+schemas are now frozen under the [stability contract](STABILITY.md). Post-1.0
+work is tracked as issues (MCP SDK v2 migration, mutation testing).
+
 ## v0.1.0 — Weigh one server
 
 - `weigh <target>` — accepts a stdio command, an HTTP(S) URL, or
