@@ -133,7 +133,36 @@ $ mcp-checkup fix "python toy_bloated_server.py"
   upstream
 
 Honest limit: your client still fetches the original schemas from the server —
-permanent fixes belong server-side, or use the trim proxy (v0.7).
+permanent fixes belong server-side, or use the trim proxy below.
+
+## Trim proxy — enforce the diet permanently
+
+`mcp-checkup serve --wrap "<server command>"` is itself a stdio MCP server:
+it re-serves the wrapped server's `tools/list` compressed while passing tool
+calls, resources, and prompts through unchanged (~2 ms overhead per call).
+Measured live: the bloated fixture server drops from 1,342 to 412 tokens
+(-69%) when weighed through the proxy.
+
+```jsonc
+// your client config — before          // after
+"toy": {                                "toy": {
+  "command": "python",                    "command": "mcp-checkup",
+  "args": ["toy_server.py"]               "args": ["serve", "--wrap",
+}                                           "python toy_server.py", "--trim"]
+                                        }
+```
+
+`mcp-checkup fix --config <file> --emit-proxy-config <out>` generates that
+rewrite for every stdio server in a config copy — never in place. The proxy is
+read-only-by-default glue: `--allow-tools a,b` additionally hides tools you
+never want exposed.
+
+### Rug-pull pinning (H05)
+
+`--write-baseline` pins a sha256 of every tool's name+description+schema.
+If a later scan sees a pinned tool's definition change — the classic
+approve-once-then-swap attack — it raises a high-severity `H05` finding, which
+`--fail-on-severity high` turns into a failing exit code in CI.
 
 ## Gate your context budget in CI
 

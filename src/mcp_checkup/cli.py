@@ -143,6 +143,49 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="Write a ready-to-paste upstream issue body to FILE",
     )
+    fix.add_argument(
+        "--emit-proxy-config",
+        metavar="FILE",
+        help="With --config: write a copy of the client config where every "
+        "stdio server is wrapped in the trim proxy (never edits in place)",
+    )
+
+    serve = sub.add_parser(
+        "serve",
+        help="Run the trim proxy: a stdio MCP server wrapping another server",
+        description=(
+            "Sits between your client and an MCP server: re-serves a "
+            "compressed tools/list while passing tool calls through "
+            "unchanged. Point your client at this command instead of the "
+            "original server."
+        ),
+    )
+    serve.add_argument(
+        "--wrap",
+        required=True,
+        metavar="COMMAND",
+        help="The wrapped server's stdio command, quoted as one string",
+    )
+    serve.add_argument(
+        "--trim",
+        action="store_true",
+        default=True,
+        help="Serve compressed tool schemas (default on)",
+    )
+    serve.add_argument(
+        "--no-trim", action="store_false", dest="trim", help="Pass schemas through unchanged"
+    )
+    serve.add_argument(
+        "--allow-tools",
+        metavar="NAMES",
+        help="Comma-separated allowlist; other tools are hidden from the client",
+    )
+    serve.add_argument(
+        "--keep-descriptions",
+        choices=["none", "first-sentence", "full"],
+        default="first-sentence",
+        help="Description policy for trimmed schemas",
+    )
     return parser
 
 
@@ -341,6 +384,27 @@ def _cmd_scan(args: argparse.Namespace) -> int:
         if base:
             for line in baseline_mod.compare(report, base):
                 print(f"baseline: {line}", file=sys.stderr)
+            if "H05" not in set(args.disabled_checks or []):
+                from mcp_checkup.checks.base import Finding, Severity
+
+                for server, tool in baseline_mod.hash_changes(report, base):
+                    report.findings.insert(
+                        0,
+                        Finding(
+                            check_id="H05",
+                            severity=Severity.HIGH,
+                            server=server,
+                            tool=tool,
+                            summary="tool definition changed since it was pinned "
+                            "in the baseline (possible rug pull)",
+                            detail="Re-review the tool, then refresh the pin with "
+                            "--write-baseline.",
+                        ),
+                    )
+                    print(
+                        f"H05: tool {tool!r} on {server!r} changed since baseline pin",
+                        file=sys.stderr,
+                    )
 
     return _scan_exit_code(args, report)
 
@@ -412,6 +476,30 @@ def _cmd_fix(args: argparse.Namespace) -> int:
     if args.emit_pr_text:
         Path(args.emit_pr_text).write_text(pr_text(inventory, report), encoding="utf-8")
         print(f"wrote upstream issue text to {args.emit_pr_text}", file=sys.stderr)
+    if args.emit_proxy_config:
+        if not args.config:
+            raise SystemExit("error: --emit-proxy-config requires --config")
+        from mcp_checkup.proxy import wrap_config
+
+        with open(args.config, encoding="utf-8") as f:
+            original = json.load(f)
+        out = Path(args.emit_proxy_config)
+        out.write_text(json.dumps(wrap_config(original), indent=2) + "\n", encoding="utf-8")
+        print(
+            f"wrote proxied config to {out} — review it, then swap it in for "
+            f"{args.config} in your client settings",
+            file=sys.stderr,
+        )
+    return 0
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from mcp_checkup.compress import CompressPolicy
+    from mcp_checkup.proxy import run_proxy
+
+    allow = [t.strip() for t in args.allow_tools.split(",")] if args.allow_tools else None
+    policy = CompressPolicy(descriptions=args.keep_descriptions)
+    asyncio.run(run_proxy(args.wrap, trim=args.trim, allow_tools=allow, policy=policy))
     return 0
 
 
@@ -424,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_scan(args)
     if args.command == "fix":
         return _cmd_fix(args)
+    if args.command == "serve":
+        return _cmd_serve(args)
     if args.command is None and (argv is None or not argv):
         # Bare `mcp-checkup` = scan with defaults.
         return main(["scan"])

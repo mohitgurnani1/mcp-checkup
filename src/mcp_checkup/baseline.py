@@ -71,6 +71,24 @@ def load(path: str | Path) -> dict | None:
     return doc
 
 
+def hash_changes(report: ScanReport, baseline: dict) -> list[tuple[str, str]]:
+    """(server, tool) pairs whose definition hash differs from the baseline pin.
+
+    A changed hash with unchanged-looking behavior is the rug-pull signature:
+    the tool was approved once, then its description/schema changed underneath.
+    """
+    current = snapshot(report)["servers"]
+    pinned = baseline.get("servers", {})
+    out: list[tuple[str, str]] = []
+    for server, data in current.items():
+        base_tools = pinned.get(server, {}).get("tools", {})
+        for tool, info in data["tools"].items():
+            old = base_tools.get(tool)
+            if old and old.get("hash") != info["hash"]:
+                out.append((server, tool))
+    return out
+
+
 def compare(report: ScanReport, baseline: dict) -> list[str]:
     """Human-readable drift lines between *report* and *baseline*.
 
