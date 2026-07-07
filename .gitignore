@@ -18,6 +18,9 @@ site/
 .coverage
 htmlcov/
 
+# Local-only notes (never committed)
+*.local.md
+
 # Editors / OS
 .idea/
 .vscode/
