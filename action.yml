@@ -27,7 +27,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@v8.2.0
+    - uses: astral-sh/setup-uv@v8.3.0
     - name: Run mcp-checkup
       shell: bash
       run: |
